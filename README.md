@@ -8,7 +8,7 @@ SeqSero2 is a pipeline for Salmonella serotype determination from raw sequencing
 
 # Dependencies 
 SeqSero has two modes:
-
+  
 
 **(A) k-mer based mode** (default), which applies unique k-mers of serotype determinant alleles to determine Salmonella serotypes in a fast speed. Special thanks to Dr. Hendrik Den Bakker for his significant contribution to this mode, details can be found in [SeqSeroK](https://github.com/hcdenbakker/SeqSeroK) and [SalmID](https://github.com/hcdenbakker/SalmID).
 
@@ -16,8 +16,8 @@ K-mer mode is a independant pipeline, it only requires:
 
 1. [Python 3](https://www.python.org/downloads/);
 
-
-**(B) allele based mode** (if users want to extract serotype determinant alleles), which applies a hybrid approach of reads-mapping and micro-assembly.
+  
+**(B) allele based mode** (if users want to extract serotype determinant alleles), which applies a hybrid approach of reads-mapping and micro-assembly. No need to install below dependencies if you just want to use k-mer mode.
 
 Allele mode depends on:
 
