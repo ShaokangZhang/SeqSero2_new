@@ -13,7 +13,6 @@ import itertools
 from distutils.version import LooseVersion
 
 
-### SeqSero Kmer
 def parse_args():
     "Parse the input arguments, use '-h' for help."
     parser = argparse.ArgumentParser(
@@ -47,7 +46,7 @@ def parse_args():
         help="<string>: 'k'(kmer mode), 'a'(allele mode), default=k")
     return parser.parse_args()
 
-
+################### here is SeqSero k-mer part, below functions are used for SeqSero Kmer mode
 def reverse_complement(sequence):
     complement = {
         'A': 'T',
@@ -400,10 +399,135 @@ def seqsero_from_formula_to_serotypes(Otype, fliC, fljB, special_gene_list,
     return predict_form, predict_sero, star, star_line, claim
 
 
-### End of SeqSero Kmer part
+def get_input_K(input_file, lib_dict, data_type):
+    #kmer mode; get input_Ks from dict and data_type
+    kmers = []
+    for h in lib_dict:
+        kmers += lib_dict[h]
+    if data_type == '4':
+        input_Ks = target_multifasta_kmerizer(input_file, 27, set(kmers))
+    elif data_type == '1' or data_type == '2' or data_type == '3':  #set it for now, will change later
+        input_Ks = target_read_kmerizer(input_file, 27, set(kmers))
+    elif data_type == '5':  #minion_2d_fasta
+        input_Ks = minion_fasta_kmerizer(input_file, 27, set(kmers))
+    if data_type == '6':  #minion_2d_fastq
+        input_Ks = minion_fastq_kmerizer(input_file, 27, set(kmers))
+    return input_Ks
 
 
-### Begin of SeqSero2 allele prediction and output
+def get_kmer_dict(lib_dict, input_Ks):
+    #kmer mode; get predicted types
+    O_dict = {}
+    H_dict = {}
+    Special_dict = {}
+    for h in lib_dict:
+        score = (len(lib_dict[h] & input_Ks) / len(lib_dict[h])) * 100
+        if score > 1:  # Arbitrary cut-off for similarity score very low but seems necessary to detect O-3,10 in some cases
+            if h.startswith('O') and score > 10:
+                O_dict[h] = score
+            if h.startswith('fl') and score > 40:
+                H_dict[h] = score
+            if (h[:2] != 'fl') and (h[0] != 'O'):
+                Special_dict[h] = score
+    return O_dict, H_dict, Special_dict
+
+
+def call_O_and_H_type(O_dict, H_dict, Special_dict, make_dir):
+    log_file = open("SeqSero_log.txt", "a")
+    log_file.write("O_scores:\n")
+    #call O:
+    highest_O = '-'
+    if len(O_dict) == 0:
+        pass
+    else:
+        for x in O_dict:
+            log_file.write(x + "\t" + str(O_dict[x]) + "\n")
+        if 'O-9,46_wbaV__1002' in O_dict:  # not sure should use and float(O9_wbaV)/float(num_1) > 0.1
+            if 'O-9,46_wzy__1191' in O_dict:  # and float(O946_wzy)/float(num_1) > 0.1
+                highest_O = "O-9,46"
+            elif "O-9,46,27_partial_wzy__1019" in O_dict:  # and float(O94627)/float(num_1) > 0.1
+                highest_O = "O-9,46,27"
+            else:
+                highest_O = "O-9"  # next, detect O9 vs O2?
+                O2 = 0
+                O9 = 0
+                for z in Special_dict:
+                    if "tyr-O-9" in z:
+                        O9 = float(Special_dict[z])
+                    if "tyr-O-2" in z:
+                        O2 = float(Special_dict[z])
+                if O2 > O9:
+                    highest_O = "O-2"
+        elif ("O-3,10_wzx__1539" in O_dict) and (
+                "O-9,46_wzy__1191" in O_dict
+        ):  # and float(O310_wzx)/float(num_1) > 0.1 and float(O946_wzy)/float(num_1) > 0.1
+            if "O-3,10_not_in_1,3,19__1519" in O_dict:  # and float(O310_no_1319)/float(num_1) > 0.1
+                highest_O = "O-3,10"
+            else:
+                highest_O = "O-1,3,19"
+        ### end of special test for O9,46 and O3,10 family
+        else:
+            try:
+                max_score = 0
+                for x in O_dict:
+                    if float(O_dict[x]) >= max_score:
+                        max_score = float(O_dict[x])
+                        highest_O = x.split("_")[0]
+                if highest_O == "O-1,3,19":
+                    highest_O = '-'
+                    max_score = 0
+                    for x in O_dict:
+                        if x == 'O-1,3,19_not_in_3,10__130':
+                            pass
+                        else:
+                            if float(O_dict[x]) >= max_score:
+                                max_score = float(O_dict[x])
+                                highest_O = x.split("_")[0]
+            except:
+                pass
+    #call_fliC:
+    highest_fliC = '-'
+    highest_fliC_raw = '-'
+    highest_Score = 0
+    log_file.write("\nH_scores:\n")
+    for s in H_dict:
+        log_file.write(s + "\t" + str(H_dict[s]) + "\n")
+        if s.startswith('fliC'):
+            if float(H_dict[s]) > highest_Score:
+                highest_fliC = s.split('_')[1]
+                highest_fliC_raw = s
+                highest_Score = float(H_dict[s])
+    #call_fljB
+    highest_fljB = '-'
+    highest_fljB_raw = '-'
+    highest_Score = 0
+    for s in H_dict:
+        if s.startswith('fljB'):
+            if float(H_dict[s]) > highest_Score:
+                highest_fljB = s.split('_')[1]
+                highest_fljB_raw = s
+                highest_Score = float(H_dict[s])
+    log_file.write("\nSpecial_scores:\n")
+    for s in Special_dict:
+        log_file.write(s + "\t" + str(Special_dict[s]) + "\n")
+    log_file.close()
+    return highest_O, highest_fliC, highest_fljB
+
+
+def judge_subspecies_Kmer(Special_dict):
+    #seqsero2 -k;
+    max_score = 0
+    prediction = ""  #default should be I
+    for x in Special_dict:
+        if "mer" in x:
+            if max_score < float(Special_dict[x]):
+                max_score = float(Special_dict[x])
+                prediction = x.split("_")[-1].strip()
+    return prediction
+################### End of SeqSero Kmer part, above functions are used for SeqSero Kmer mode
+
+
+################### below functions are used for SeqSero allele mode
 def xml_parse_score_comparision_seqsero(xmlfile):
     #used to do seqsero xml analysis
     from Bio.Blast import NCBIXML
@@ -680,53 +804,6 @@ def decide_O_type_and_get_special_genes(Final_list, Final_list_passed):
     return O_choice, O_nodes_list, special_genes, final_O
 
 
-### End of SeqSero2 allele prediction and output
-
-
-def get_input_files(make_dir, input_file, data_type, dirpath):
-    #tell input files from datatype
-    #"<int>: '1'(pair-end reads, interleaved),'2'(pair-end reads, seperated),'3'(single-end reads), '4'(assembly),'5'(nanopore fasta),'6'(nanopore fastq)"
-    for_fq = ""
-    rev_fq = ""
-    os.chdir(make_dir)
-    if data_type == "1":
-        input_file = input_file[0].split("/")[-1]
-        if input_file.endswith(".sra"):
-            subprocess.check_call(
-                "fastq-dump --split-files " + input_file, shell=True)
-            for_fq = input_file.replace(".sra", "_1.fastq")
-            rev_fq = input_file.replace(".sra", "_2.fastq")
-        else:
-            core_id = input_file.split(".fastq")[0].split(".fq")[0]
-            for_fq = core_id + "_1.fastq"
-            rev_fq = core_id + "_2.fastq"
-            if input_file.endswith(".gz"):
-                subprocess.check_call(
-                    "gzip -dc " + input_file + " | " + dirpath +
-                    "/deinterleave_fastq.sh " + for_fq + " " + rev_fq,
-                    shell=True)
-            else:
-                subprocess.check_call(
-                    "cat " + input_file + " | " + dirpath +
-                    "/deinterleave_fastq.sh " + for_fq + " " + rev_fq,
-                    shell=True)
-    elif data_type == "2":
-        for_fq = input_file[0].split("/")[-1]
-        rev_fq = input_file[1].split("/")[-1]
-    elif data_type == "3":
-        input_file = input_file[0].split("/")[-1]
-        if input_file.endswith(".sra"):
-            subprocess.check_call(
-                "fastq-dump --split-files " + input_file, shell=True)
-            for_fq = input_file.replace(".sra", "_1.fastq")
-        else:
-            for_fq = input_file
-    elif data_type in ["4", "5", "6"]:
-        for_fq = input_file[0].split("/")[-1]
-    os.chdir("..")
-    return for_fq, rev_fq
-
-
 def predict_O_and_H_types(for_fq, rev_fq, Final_list, Final_list_passed):
     #get O and H types from Final_list from blast parsing; allele mode
     fliC_choice = "-"
@@ -806,121 +883,6 @@ def predict_O_and_H_types(for_fq, rev_fq, Final_list, Final_list_passed):
             break
     log_file.close()
     return O_choice, fliC_choice, fljB_choice, special_gene_list
-
-
-def get_input_K(input_file, lib_dict, data_type):
-    #kmer mode; get input_Ks from dict and data_type
-    kmers = []
-    for h in lib_dict:
-        kmers += lib_dict[h]
-    if data_type == '4':
-        input_Ks = target_multifasta_kmerizer(input_file, 27, set(kmers))
-    elif data_type == '1' or data_type == '2' or data_type == '3':  #set it for now, will change later
-        input_Ks = target_read_kmerizer(input_file, 27, set(kmers))
-    elif data_type == '5':  #minion_2d_fasta
-        input_Ks = minion_fasta_kmerizer(input_file, 27, set(kmers))
-    if data_type == '6':  #minion_2d_fastq
-        input_Ks = minion_fastq_kmerizer(input_file, 27, set(kmers))
-    return input_Ks
-
-
-def get_kmer_dict(lib_dict, input_Ks):
-    #kmer mode; get predicted types
-    O_dict = {}
-    H_dict = {}
-    Special_dict = {}
-    for h in lib_dict:
-        score = (len(lib_dict[h] & input_Ks) / len(lib_dict[h])) * 100
-        if score > 1:  # Arbitrary cut-off for similarity score very low but seems necessary to detect O-3,10 in some cases
-            if h.startswith('O') and score > 10:
-                O_dict[h] = score
-            if h.startswith('fl') and score > 40:
-                H_dict[h] = score
-            if (h[:2] != 'fl') and (h[0] != 'O'):
-                Special_dict[h] = score
-    return O_dict, H_dict, Special_dict
-
-
-def call_O_and_H_type(O_dict, H_dict, Special_dict, make_dir):
-    log_file = open("SeqSero_log.txt", "a")
-    log_file.write("O_scores:\n")
-    #call O:
-    highest_O = '-'
-    if len(O_dict) == 0:
-        pass
-    else:
-        for x in O_dict:
-            log_file.write(x + "\t" + str(O_dict[x]) + "\n")
-        if 'O-9,46_wbaV__1002' in O_dict:  # not sure should use and float(O9_wbaV)/float(num_1) > 0.1
-            if 'O-9,46_wzy__1191' in O_dict:  # and float(O946_wzy)/float(num_1) > 0.1
-                highest_O = "O-9,46"
-            elif "O-9,46,27_partial_wzy__1019" in O_dict:  # and float(O94627)/float(num_1) > 0.1
-                highest_O = "O-9,46,27"
-            else:
-                highest_O = "O-9"  # next, detect O9 vs O2?
-                O2 = 0
-                O9 = 0
-                for z in Special_dict:
-                    if "tyr-O-9" in z:
-                        O9 = float(Special_dict[z])
-                    if "tyr-O-2" in z:
-                        O2 = float(Special_dict[z])
-                if O2 > O9:
-                    highest_O = "O-2"
-        elif ("O-3,10_wzx__1539" in O_dict) and (
-                "O-9,46_wzy__1191" in O_dict
-        ):  # and float(O310_wzx)/float(num_1) > 0.1 and float(O946_wzy)/float(num_1) > 0.1
-            if "O-3,10_not_in_1,3,19__1519" in O_dict:  # and float(O310_no_1319)/float(num_1) > 0.1
-                highest_O = "O-3,10"
-            else:
-                highest_O = "O-1,3,19"
-        ### end of special test for O9,46 and O3,10 family
-        else:
-            try:
-                max_score = 0
-                for x in O_dict:
-                    if float(O_dict[x]) >= max_score:
-                        max_score = float(O_dict[x])
-                        highest_O = x.split("_")[0]
-                if highest_O == "O-1,3,19":
-                    highest_O = '-'
-                    max_score = 0
-                    for x in O_dict:
-                        if x == 'O-1,3,19_not_in_3,10__130':
-                            pass
-                        else:
-                            if float(O_dict[x]) >= max_score:
-                                max_score = float(O_dict[x])
-                                highest_O = x.split("_")[0]
-            except:
-                pass
-    #call_fliC:
-    highest_fliC = '-'
-    highest_fliC_raw = '-'
-    highest_Score = 0
-    log_file.write("\nH_scores:\n")
-    for s in H_dict:
-        log_file.write(s + "\t" + str(H_dict[s]) + "\n")
-        if s.startswith('fliC'):
-            if float(H_dict[s]) > highest_Score:
-                highest_fliC = s.split('_')[1]
-                highest_fliC_raw = s
-                highest_Score = float(H_dict[s])
-    #call_fljB
-    highest_fljB = '-'
-    highest_fljB_raw = '-'
-    highest_Score = 0
-    for s in H_dict:
-        if s.startswith('fljB'):
-            if float(H_dict[s]) > highest_Score:
-                highest_fljB = s.split('_')[1]
-                highest_fljB_raw = s
-                highest_Score = float(H_dict[s])
-    log_file.write("\nSpecial_scores:\n")
-    for s in Special_dict:
-        log_file.write(s + "\t" + str(Special_dict[s]) + "\n")
-    log_file.close()
-    return highest_O, highest_fliC, highest_fljB
 
 
 def get_temp_file_names(for_fq, rev_fq):
@@ -1060,18 +1022,53 @@ def judge_subspecies(fnameA):
     prediction = salm_species_results[max_score_index].split(".")[
         1].strip().split(" ")[0]
     return prediction
+################### End of SeqSero allele part, above functions are used for SeqSero allele mode
 
 
-def judge_subspecies_Kmer(Special_dict):
-    #seqsero2 -k;
-    max_score = 0
-    prediction = ""  #default should be I
-    for x in Special_dict:
-        if "mer" in x:
-            if max_score < float(Special_dict[x]):
-                max_score = float(Special_dict[x])
-                prediction = x.split("_")[-1].strip()
-    return prediction
+################### below functions are used for SeqSero both Kmer and allele mode
+def get_input_files(make_dir, input_file, data_type, dirpath):
+    #tell input files from datatype
+    #"<int>: '1'(pair-end reads, interleaved),'2'(pair-end reads, seperated),'3'(single-end reads), '4'(assembly),'5'(nanopore fasta),'6'(nanopore fastq)"
+    for_fq = ""
+    rev_fq = ""
+    os.chdir(make_dir)
+    if data_type == "1":
+        input_file = input_file[0].split("/")[-1]
+        if input_file.endswith(".sra"):
+            subprocess.check_call(
+                "fastq-dump --split-files " + input_file, shell=True)
+            for_fq = input_file.replace(".sra", "_1.fastq")
+            rev_fq = input_file.replace(".sra", "_2.fastq")
+        else:
+            core_id = input_file.split(".fastq")[0].split(".fq")[0]
+            for_fq = core_id + "_1.fastq"
+            rev_fq = core_id + "_2.fastq"
+            if input_file.endswith(".gz"):
+                subprocess.check_call(
+                    "gzip -dc " + input_file + " | " + dirpath +
+                    "/deinterleave_fastq.sh " + for_fq + " " + rev_fq,
+                    shell=True)
+            else:
+                subprocess.check_call(
+                    "cat " + input_file + " | " + dirpath +
+                    "/deinterleave_fastq.sh " + for_fq + " " + rev_fq,
+                    shell=True)
+    elif data_type == "2":
+        for_fq = input_file[0].split("/")[-1]
+        rev_fq = input_file[1].split("/")[-1]
+    elif data_type == "3":
+        input_file = input_file[0].split("/")[-1]
+        if input_file.endswith(".sra"):
+            subprocess.check_call(
+                "fastq-dump --split-files " + input_file, shell=True)
+            for_fq = input_file.replace(".sra", "_1.fastq")
+        else:
+            for_fq = input_file
+    elif data_type in ["4", "5", "6"]:
+        for_fq = input_file[0].split("/")[-1]
+    os.chdir("..")
+    return for_fq, rev_fq
+################### End of above part
 
 
 def main():

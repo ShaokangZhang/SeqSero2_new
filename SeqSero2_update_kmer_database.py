@@ -5,7 +5,7 @@ import os, subprocess
 import pickle
 
 
-### SeqSero Kmer
+### SeqSero Kmer database update
 def parse_args():
     "Parse the input arguments, use '-h' for help."
     parser = argparse.ArgumentParser(
