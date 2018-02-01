@@ -10,7 +10,7 @@ SeqSero2 is a pipeline for Salmonella serotype determination from raw sequencing
 SeqSero has two modes:
 
 
-(A) k-mer based mode (default), which applies unique k-mers of serotype determinant alleles to determine Salmonella serotypes in a fast speed. Special thanks to Dr. Hendrik Den Bakker for his significant contribution to this mode, details can be found in [SeqSeroK](https://github.com/hcdenbakker/SeqSeroK) and [SalmID] (https://github.com/hcdenbakker/SalmID).
+(A) k-mer based mode (default), which applies unique k-mers of serotype determinant alleles to determine Salmonella serotypes in a fast speed. Special thanks to Dr. Hendrik Den Bakker for his significant contribution to this mode, details can be found in [SeqSeroK](https://github.com/hcdenbakker/SeqSeroK) and [SalmID](https://github.com/hcdenbakker/SalmID).
 
 K-mer mode is a independant pipeline, it only requires:
 
@@ -35,7 +35,7 @@ Allele mode depends on:
 
 7. [Bedtools](http://bedtools.readthedocs.io/en/latest/);
 
-8. [SalmID] (https://github.com/hcdenbakker/SalmID).
+8. [SalmID](https://github.com/hcdenbakker/SalmID).
 
 
 # Executing the code 
@@ -57,7 +57,7 @@ Upon executing the command, a directory named 'SeqSero_result_Time_your_run' wil
 
 
 # Update the database
-If changes are made to the fasta database, type "SeqSero2_update_kmer_database.py", it will automatically update the database for k-mer mode.
+If changes were made to the fasta database, type "SeqSero2_update_kmer_database.py", it will automatically update the database for k-mer mode.
 
 # Citation
 Zhang S, Yin Y, Jones MB, Zhang Z, Deatherage Kaiser BL, Dinsmore BA, Fitzgerald C, Fields PI, Deng X.  
