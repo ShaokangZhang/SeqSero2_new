@@ -36,7 +36,7 @@ Allele mode depends on:
 
 7. [Bedtools](http://bedtools.readthedocs.io/en/latest/);
 
-8. [SalmID] (https://github.com/hcdenbakker/SalmID).
+8. [SalmID](https://github.com/hcdenbakker/SalmID).
 
 
 # Executing the code 
