@@ -8,20 +8,21 @@ SeqSero2 is a pipeline for Salmonella serotype determination from raw sequencing
 
 # Dependencies 
 SeqSero has two modes:
-  
 
-**(A) k-mer based mode** (default), which applies unique k-mers of serotype determinant alleles to determine Salmonella serotypes in a fast speed. Special thanks to Dr. Hendrik Den Bakker for his significant contribution to this mode, details can be found in [SeqSeroK](https://github.com/hcdenbakker/SeqSeroK) and [SalmID](https://github.com/hcdenbakker/SalmID).
+
+(A) k-mer based mode (default), which applies unique k-mers of serotype determinant alleles to determine Salmonella serotypes in a fast speed. Special thanks to Dr. Hendrik Den Bakker for his significant contribution to this mode, details can be found in [SeqSeroK](https://github.com/hcdenbakker/SeqSeroK) and [SalmID] (https://github.com/hcdenbakker/SalmID).
 
 K-mer mode is a independant pipeline, it only requires:
 
-1. [Python 3](https://www.python.org/downloads/);
+1. Python 3;
+2. [SRA Toolkit](http://www.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?cmd=show&f=software&m=software&s=software) (optional, just used to fastq-dump sra files);
 
-  
-**(B) allele based mode** (if users want to extract serotype determinant alleles), which applies a hybrid approach of reads-mapping and micro-assembly. No need to install below dependencies if you just want to use k-mer mode.
+
+(B) allele based mode (if users want to extract serotype determinant alleles), which applies a hybrid approach of reads-mapping and micro-assembly.
 
 Allele mode depends on:
 
-1. [Python 3](https://www.python.org/downloads/); 
+1. Python 3; 
 
 2. [Burrows-Wheeler Aligner](http://sourceforge.net/projects/bio-bwa/files/); 
 
@@ -35,7 +36,7 @@ Allele mode depends on:
 
 7. [Bedtools](http://bedtools.readthedocs.io/en/latest/);
 
-8. [SalmID](https://github.com/hcdenbakker/SalmID).
+8. [SalmID] (https://github.com/hcdenbakker/SalmID).
 
 
 # Executing the code 
@@ -50,14 +51,15 @@ Allele mode depends on:
     -p <int> (number of threads for allele mode, if p >4, only 4 threads will be used for assembly since the amount of extracted reads is small, default=1) 
 
     -b <string> (algorithms for bwa mapping for allele mode; 'mem' for mem, 'sam' for samse/sampe; default=mem; optional; for now we only optimized for default "mem" mode)
-
+ 
+    -d <string> (output directory name, if not set, the output directory would be 'SeqSero_result_'+time stamp+one random number)
+	
+	-c <flag> (if '-c' was flagged, SeqSero2 will use clean mode and only output serotyping prediction without the directory containing log files)
+	
 
 # Output 
 Upon executing the command, a directory named 'SeqSero_result_Time_your_run' will be created. Your result will be stored in 'Seqsero_result.txt' in that directory. And the assembled alleles can also be found in the directory if using "-m a" (allele mode).
 
-
-# Update the database
-If changes were made to the fasta database, type "SeqSero2_update_kmer_database.py", it will automatically update the database for k-mer mode.
 
 # Citation
 Zhang S, Yin Y, Jones MB, Zhang Z, Deatherage Kaiser BL, Dinsmore BA, Fitzgerald C, Fields PI, Deng X.  
